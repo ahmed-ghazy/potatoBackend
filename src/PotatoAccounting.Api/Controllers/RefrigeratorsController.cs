@@ -68,6 +68,28 @@ public class RefrigeratorsController : ControllerBase
         return NoContent();
     }
 
+    // ===== Item images =====
+
+    [HttpPost("{id:int}/items/{itemId:int}/image")]
+    [RequestSizeLimit(10 * 1024 * 1024)]
+    public async Task<ActionResult<RefrigeratorItemDto>> UploadItemImage(int id, int itemId, IFormFile file)
+    {
+        if (file is null || file.Length == 0)
+            return BadRequest(new { message = "لم يتم اختيار ملف" });
+
+        await using var stream = file.OpenReadStream();
+        var dto = await _sender.Send(new UploadRefrigeratorItemImageCommand(
+            id, itemId, file.FileName, stream, file.ContentType ?? "", file.Length));
+        return Ok(dto);
+    }
+
+    [HttpDelete("{id:int}/items/{itemId:int}/image")]
+    public async Task<IActionResult> DeleteItemImage(int id, int itemId)
+    {
+        await _sender.Send(new DeleteRefrigeratorItemImageCommand(id, itemId));
+        return NoContent();
+    }
+
     // ===== Expenses =====
 
     [HttpPost("{id:int}/expenses")]

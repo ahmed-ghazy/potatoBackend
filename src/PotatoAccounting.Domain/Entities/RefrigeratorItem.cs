@@ -10,6 +10,7 @@ public class RefrigeratorItem : AuditableEntity, ITenantEntity
     public int SackCount { get; private set; }
     public decimal Weight { get; private set; }
     public string? Description { get; private set; }
+    public string? ImagePath { get; private set; }
     public string? UserId { get; private set; }
     public int TenantId { get; private set; }
 
@@ -47,6 +48,11 @@ public class RefrigeratorItem : AuditableEntity, ITenantEntity
         Weight = weight;
         Description = string.IsNullOrWhiteSpace(description) ? null : description.Trim();
     }
+
+    public void AttachImage(string? imagePath) =>
+        ImagePath = string.IsNullOrWhiteSpace(imagePath) ? null : imagePath;
+
+    public void RemoveImage() => ImagePath = null;
 
     public void SetTenant(int tenantId) => TenantId = tenantId;
 

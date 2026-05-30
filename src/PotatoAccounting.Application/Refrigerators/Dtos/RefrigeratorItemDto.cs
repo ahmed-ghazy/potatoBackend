@@ -10,6 +10,7 @@ public class RefrigeratorItemDto
     public int SackCount { get; set; }
     public decimal Weight { get; set; }
     public string? Description { get; set; }
+    public string? ImagePath { get; set; }
 
     public static RefrigeratorItemDto From(RefrigeratorItem i) => new()
     {
@@ -19,5 +20,6 @@ public class RefrigeratorItemDto
         SackCount = i.SackCount,
         Weight = i.Weight,
         Description = i.Description,
+        ImagePath = i.ImagePath,
     };
 }
