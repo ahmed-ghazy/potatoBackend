@@ -45,6 +45,7 @@ public static class DependencyInjection
 
         services.AddHttpContextAccessor();
         services.AddScoped<ICurrentUserService, CurrentUserService>();
+        services.Configure<StorageOptions>(configuration.GetSection("Storage"));
         services.AddScoped<IFileStorage, LocalFileStorage>();
 
         var jwt = configuration.GetSection("JwtSettings").Get<JwtSettings>()

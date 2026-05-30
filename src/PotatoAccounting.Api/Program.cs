@@ -1,10 +1,13 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.FileProviders;
+using Microsoft.Extensions.Options;
 using Microsoft.OpenApi.Models;
 using PotatoAccounting.Api.Middleware;
 using PotatoAccounting.Application;
 using PotatoAccounting.Infrastructure;
 using PotatoAccounting.Infrastructure.Identity;
 using PotatoAccounting.Infrastructure.Persistence;
+using PotatoAccounting.Infrastructure.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -73,10 +76,23 @@ app.UseMiddleware<ExceptionHandlingMiddleware>();
 if (app.Environment.IsDevelopment())
     app.UseCors("AllowAngular");
 
-// Serve uploaded files (images attached to entities) + the published Angular bundle.
-var uploadsRoot = Path.Combine(app.Environment.ContentRootPath, "wwwroot", "uploads");
+// Uploaded files live OUTSIDE wwwroot (so deployments wiping the published bundle
+// don't take user data with them). We still serve them at the same /uploads/*
+// URL so stored paths like "/uploads/farmers/abc.jpg" keep working.
+var storageOptions = app.Services.GetRequiredService<IOptions<StorageOptions>>().Value;
+var uploadsRoot = LocalFileStorage.ResolveUploadsRoot(app.Environment.ContentRootPath, storageOptions.UploadsPath);
 Directory.CreateDirectory(uploadsRoot);
+
+// One-time legacy migration: if old wwwroot/uploads still has files, move them
+// to the new location. Skipped if the new location already contains files.
+MigrateLegacyUploads(Path.Combine(app.Environment.ContentRootPath, "wwwroot", "uploads"), uploadsRoot);
+
 app.UseDefaultFiles();
+app.UseStaticFiles(new StaticFileOptions
+{
+    FileProvider = new PhysicalFileProvider(uploadsRoot),
+    RequestPath = storageOptions.PublicUrlPrefix.TrimEnd('/'),
+});
 app.UseStaticFiles();
 
 app.UseAuthentication();
@@ -104,3 +120,29 @@ if (File.Exists(indexFile))
 }
 
 app.Run();
+
+static void MigrateLegacyUploads(string legacyPath, string newPath)
+{
+    if (!Directory.Exists(legacyPath)) return;
+    if (string.Equals(Path.GetFullPath(legacyPath), Path.GetFullPath(newPath), StringComparison.OrdinalIgnoreCase)) return;
+
+    var legacyFiles = Directory.EnumerateFiles(legacyPath, "*", SearchOption.AllDirectories).ToList();
+    if (legacyFiles.Count == 0) return;
+
+    foreach (var src in legacyFiles)
+    {
+        var relative = Path.GetRelativePath(legacyPath, src);
+        var dest = Path.Combine(newPath, relative);
+        Directory.CreateDirectory(Path.GetDirectoryName(dest)!);
+
+        if (File.Exists(dest)) continue; // don't overwrite if it already exists in new location
+        try
+        {
+            File.Move(src, dest);
+        }
+        catch
+        {
+            // best-effort migration; ignore IO errors so a single bad file doesn't block startup
+        }
+    }
+}

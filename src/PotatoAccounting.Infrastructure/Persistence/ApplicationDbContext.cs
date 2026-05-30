@@ -31,6 +31,8 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>, IApplica
     public DbSet<RefrigeratorItem> RefrigeratorItems => Set<RefrigeratorItem>();
     public DbSet<RefrigeratorExpense> RefrigeratorExpenses => Set<RefrigeratorExpense>();
     public DbSet<Season> Seasons => Set<Season>();
+    public DbSet<PersonalAccount> PersonalAccounts => Set<PersonalAccount>();
+    public DbSet<PersonalAccountEntry> PersonalAccountEntries => Set<PersonalAccountEntry>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -87,6 +89,14 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>, IApplica
         builder.Entity<Season>().HasQueryFilter(s =>
             _currentUser.IsSuperAdmin
             || (_currentUser.TenantId != null && s.TenantId == _currentUser.TenantId));
+
+        builder.Entity<PersonalAccount>().HasQueryFilter(a =>
+            _currentUser.IsSuperAdmin
+            || (_currentUser.TenantId != null && a.TenantId == _currentUser.TenantId));
+
+        builder.Entity<PersonalAccountEntry>().HasQueryFilter(e =>
+            _currentUser.IsSuperAdmin
+            || (_currentUser.TenantId != null && e.TenantId == _currentUser.TenantId));
     }
 
     public override int SaveChanges()

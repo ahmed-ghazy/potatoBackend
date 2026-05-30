@@ -368,6 +368,95 @@ namespace PotatoAccounting.Infrastructure.Persistence.Migrations
                     b.ToTable("FarmerTransactionItems", (string)null);
                 });
 
+            modelBuilder.Entity("PotatoAccounting.Domain.Entities.PersonalAccount", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<string>("PhoneNumber")
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<int>("TenantId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId", "Name")
+                        .IsUnique();
+
+                    b.ToTable("PersonalAccounts", (string)null);
+                });
+
+            modelBuilder.Entity("PotatoAccounting.Domain.Entities.PersonalAccountEntry", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<decimal>("Amount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("Date")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<int>("Direction")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("Fee")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int?>("PaymentMethod")
+                        .HasColumnType("int");
+
+                    b.Property<int>("PersonalAccountId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("TenantId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("UserId")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PersonalAccountId");
+
+                    b.HasIndex("TenantId");
+
+                    b.ToTable("PersonalAccountEntries", (string)null);
+                });
+
             modelBuilder.Entity("PotatoAccounting.Domain.Entities.Refrigerator", b =>
                 {
                     b.Property<int>("Id")
@@ -921,6 +1010,15 @@ namespace PotatoAccounting.Infrastructure.Persistence.Migrations
                     b.HasOne("PotatoAccounting.Domain.Entities.FarmerTransaction", null)
                         .WithMany("Items")
                         .HasForeignKey("FarmerTransactionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("PotatoAccounting.Domain.Entities.PersonalAccountEntry", b =>
+                {
+                    b.HasOne("PotatoAccounting.Domain.Entities.PersonalAccount", null)
+                        .WithMany()
+                        .HasForeignKey("PersonalAccountId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });

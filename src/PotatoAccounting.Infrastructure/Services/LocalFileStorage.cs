@@ -1,23 +1,26 @@
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.Extensions.Options;
 using PotatoAccounting.Application.Common.Interfaces;
 
 namespace PotatoAccounting.Infrastructure.Services;
 
 public class LocalFileStorage : IFileStorage
 {
-    private const string PublicRoot = "/uploads";
-    private readonly IWebHostEnvironment _env;
+    private readonly string _uploadsRoot;
+    private readonly string _publicPrefix;
 
-    public LocalFileStorage(IWebHostEnvironment env)
+    public LocalFileStorage(IWebHostEnvironment env, IOptions<StorageOptions> options)
     {
-        _env = env;
+        var opts = options.Value;
+        _uploadsRoot = ResolveUploadsRoot(env.ContentRootPath, opts.UploadsPath);
+        _publicPrefix = NormalizePrefix(opts.PublicUrlPrefix);
+        Directory.CreateDirectory(_uploadsRoot);
     }
 
     public async Task<string> SaveAsync(string subfolder, string originalFileName, Stream content, CancellationToken cancellationToken = default)
     {
-        var webRoot = _env.WebRootPath ?? Path.Combine(_env.ContentRootPath, "wwwroot");
         var safeSubfolder = subfolder.Trim('/').Replace("..", "");
-        var folderPath = Path.Combine(webRoot, "uploads", safeSubfolder);
+        var folderPath = Path.Combine(_uploadsRoot, safeSubfolder);
         Directory.CreateDirectory(folderPath);
 
         var ext = Path.GetExtension(originalFileName);
@@ -29,17 +32,19 @@ public class LocalFileStorage : IFileStorage
         await using var fs = new FileStream(fullPath, FileMode.CreateNew, FileAccess.Write);
         await content.CopyToAsync(fs, cancellationToken);
 
-        return $"{PublicRoot}/{safeSubfolder}/{fileName}";
+        return $"{_publicPrefix}/{safeSubfolder}/{fileName}";
     }
 
     public void Delete(string? publicRelativeUrl)
     {
         if (string.IsNullOrWhiteSpace(publicRelativeUrl)) return;
-        if (!publicRelativeUrl.StartsWith(PublicRoot, StringComparison.OrdinalIgnoreCase)) return;
+        if (!publicRelativeUrl.StartsWith(_publicPrefix, StringComparison.OrdinalIgnoreCase)) return;
 
-        var webRoot = _env.WebRootPath ?? Path.Combine(_env.ContentRootPath, "wwwroot");
-        var relative = publicRelativeUrl.TrimStart('/').Replace("..", "");
-        var fullPath = Path.Combine(webRoot, relative);
+        var relativeWithinUploads = publicRelativeUrl
+            .Substring(_publicPrefix.Length)
+            .TrimStart('/')
+            .Replace("..", "");
+        var fullPath = Path.Combine(_uploadsRoot, relativeWithinUploads);
 
         try
         {
@@ -49,5 +54,22 @@ public class LocalFileStorage : IFileStorage
         {
             // best-effort delete; ignore IO errors
         }
+    }
+
+    public static string ResolveUploadsRoot(string contentRootPath, string configuredPath)
+    {
+        if (string.IsNullOrWhiteSpace(configuredPath))
+            configuredPath = "App_Data/uploads";
+        return Path.IsPathRooted(configuredPath)
+            ? configuredPath
+            : Path.GetFullPath(Path.Combine(contentRootPath, configuredPath));
+    }
+
+    private static string NormalizePrefix(string prefix)
+    {
+        if (string.IsNullOrWhiteSpace(prefix)) return "/uploads";
+        var p = prefix.Trim();
+        if (!p.StartsWith('/')) p = "/" + p;
+        return p.TrimEnd('/');
     }
 }

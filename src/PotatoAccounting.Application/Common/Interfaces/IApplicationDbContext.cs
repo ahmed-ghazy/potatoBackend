@@ -19,5 +19,7 @@ public interface IApplicationDbContext
     DbSet<RefrigeratorItem> RefrigeratorItems { get; }
     DbSet<RefrigeratorExpense> RefrigeratorExpenses { get; }
     DbSet<Season> Seasons { get; }
+    DbSet<PersonalAccount> PersonalAccounts { get; }
+    DbSet<PersonalAccountEntry> PersonalAccountEntries { get; }
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 }

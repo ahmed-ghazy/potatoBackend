@@ -427,3 +427,8 @@ FodyWeavers.xsd
 *.msix
 *.msm
 *.msp
+
+# Uploaded user files (stored outside wwwroot under App_Data/uploads by default)
+src/PotatoAccounting.Api/App_Data/
+# Legacy upload location (pre-2026-05-26 migration), kept ignored for safety
+src/PotatoAccounting.Api/wwwroot/uploads/
