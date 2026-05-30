@@ -1,1 +1,0 @@
-function i(){return n(new Date)}function g(t){return t?typeof t=="string"?t.length>=10?t.substring(0,10):t:n(t):""}function n(t){let r=t.getFullYear(),e=String(t.getMonth()+1).padStart(2,"0"),o=String(t.getDate()).padStart(2,"0");return`${r}-${e}-${o}`}export{i as a,g as b};
