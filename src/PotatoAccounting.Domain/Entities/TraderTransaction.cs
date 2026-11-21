@@ -20,6 +20,7 @@ public class TraderTransaction : AuditableEntity, ITenantEntity, ISeasonAwareEnt
 
     public IReadOnlyList<TraderTransactionItem> Items => _items;
 
+    public int TotalSackCount => _items.Sum(i => i.SackCount);
     public decimal TotalAmount => Math.Round(_items.Sum(i => i.Amount), 2);
     public decimal TotalWeight => Math.Round(_items.Sum(i => i.Weight), 2);
     public decimal TotalNetWeight => Math.Round(_items.Sum(i => i.NetWeight), 2);

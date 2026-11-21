@@ -16,12 +16,17 @@ public record TraderTransactionItemInput(
     decimal Price,
     bool HasTare = true,
     bool HasCommission = true,
-    decimal CommissionPerTon = 0m);
+    decimal CommissionPerTon = 0m,
+    int SackCount = 0,
+    int? RefrigeratorId = null);
+
+public record TraderPaymentInput(DateTime Date, decimal Amount, string? Notes);
 
 public record CreateTraderTransactionCommand(
     int TraderId,
     string? Notes,
-    IReadOnlyList<TraderTransactionItemInput> Items) : IRequest<TraderTransactionDto>;
+    IReadOnlyList<TraderTransactionItemInput> Items,
+    IReadOnlyList<TraderPaymentInput>? Payments = null) : IRequest<TraderTransactionDto>;
 
 public class CreateTraderTransactionCommandValidator : AbstractValidator<CreateTraderTransactionCommand>
 {
@@ -37,6 +42,15 @@ public class CreateTraderTransactionCommandValidator : AbstractValidator<CreateT
             item.RuleFor(i => i.Weight).GreaterThan(0).WithMessage("وزن العنصر يجب أن يكون أكبر من صفر");
             item.RuleFor(i => i.Price).GreaterThanOrEqualTo(0);
             item.RuleFor(i => i.CommissionPerTon).GreaterThanOrEqualTo(0);
+            item.RuleFor(i => i.SackCount).GreaterThanOrEqualTo(0).WithMessage("العدد لا يمكن أن يكون سالباً");
+        });
+        When(x => x.Payments is not null, () =>
+        {
+            RuleForEach(x => x.Payments!).ChildRules(payment =>
+            {
+                payment.RuleFor(p => p.Amount).GreaterThan(0).WithMessage("مبلغ الدفعة يجب أن يكون أكبر من صفر");
+                payment.RuleFor(p => p.Notes).MaximumLength(500);
+            });
         });
     }
 }
@@ -62,8 +76,10 @@ public class CreateTraderTransactionCommandHandler
             .FirstOrDefaultAsync(t => t.Id == request.TraderId, cancellationToken)
             ?? throw new NotFoundException(nameof(Trader), request.TraderId);
 
+        await EnsureRefrigeratorsExistAsync(request.Items, cancellationToken);
+
         var items = request.Items
-            .Select(i => TraderTransactionItem.Create(i.Date, i.Description, i.Weight, i.Price, i.HasTare, i.HasCommission, i.CommissionPerTon))
+            .Select(i => TraderTransactionItem.Create(i.Date, i.Description, i.SackCount, i.Weight, i.Price, i.HasTare, i.HasCommission, i.CommissionPerTon, i.RefrigeratorId))
             .ToList();
 
         var entity = TraderTransaction.Create(
@@ -76,9 +92,39 @@ public class CreateTraderTransactionCommandHandler
         _context.TraderTransactions.Add(entity);
         await _context.SaveChangesAsync(cancellationToken);
 
-        var dto = TraderTransactionDto.From(entity);
+        var payments = (request.Payments ?? Array.Empty<TraderPaymentInput>())
+            .Select(p => TraderPayment.Create(entity.Id, p.Date, p.Amount, p.Notes, _currentUser.UserId, tenantId))
+            .ToList();
+
+        if (payments.Count > 0)
+        {
+            _context.TraderPayments.AddRange(payments);
+            await _context.SaveChangesAsync(cancellationToken);
+        }
+
+        var dto = TraderTransactionDto.From(entity, payments);
         dto.TraderName = trader.Name;
         dto.TraderPhoneNumber = trader.PhoneNumber;
         return dto;
+    }
+
+    private async Task EnsureRefrigeratorsExistAsync(
+        IEnumerable<TraderTransactionItemInput> items, CancellationToken cancellationToken)
+    {
+        var refrigeratorIds = items
+            .Where(i => i.RefrigeratorId is > 0)
+            .Select(i => i.RefrigeratorId!.Value)
+            .Distinct()
+            .ToList();
+        if (refrigeratorIds.Count == 0) return;
+
+        var found = await _context.Refrigerators
+            .Where(r => refrigeratorIds.Contains(r.Id))
+            .Select(r => r.Id)
+            .ToListAsync(cancellationToken);
+
+        var missing = refrigeratorIds.Except(found).ToList();
+        if (missing.Count > 0)
+            throw new NotFoundException(nameof(Refrigerator), missing[0]);
     }
 }

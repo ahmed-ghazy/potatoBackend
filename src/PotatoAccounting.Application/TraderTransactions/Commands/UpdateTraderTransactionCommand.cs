@@ -29,6 +29,7 @@ public class UpdateTraderTransactionCommandValidator : AbstractValidator<UpdateT
             item.RuleFor(i => i.Weight).GreaterThan(0).WithMessage("وزن العنصر يجب أن يكون أكبر من صفر");
             item.RuleFor(i => i.Price).GreaterThanOrEqualTo(0);
             item.RuleFor(i => i.CommissionPerTon).GreaterThanOrEqualTo(0);
+            item.RuleFor(i => i.SackCount).GreaterThanOrEqualTo(0).WithMessage("العدد لا يمكن أن يكون سالباً");
         });
     }
 }
@@ -70,6 +71,8 @@ public class UpdateTraderTransactionCommandHandler
                 throw new NotFoundException(nameof(Trader), request.TraderId);
         }
 
+        await EnsureRefrigeratorsExistAsync(request.Items, cancellationToken);
+
         entity.UpdateHeader(request.TraderId, request.Notes);
 
         // Diff items by Id
@@ -83,11 +86,11 @@ public class UpdateTraderTransactionCommandHandler
                 var existing = entity.FindItem(id);
                 if (existing is null)
                     throw new NotFoundException(nameof(TraderTransactionItem), id);
-                existing.Update(input.Date, input.Description, input.Weight, input.Price, input.HasTare, input.HasCommission, input.CommissionPerTon);
+                existing.Update(input.Date, input.Description, input.SackCount, input.Weight, input.Price, input.HasTare, input.HasCommission, input.CommissionPerTon, input.RefrigeratorId);
             }
             else
             {
-                entity.AddItem(TraderTransactionItem.Create(input.Date, input.Description, input.Weight, input.Price, input.HasTare, input.HasCommission, input.CommissionPerTon));
+                entity.AddItem(TraderTransactionItem.Create(input.Date, input.Description, input.SackCount, input.Weight, input.Price, input.HasTare, input.HasCommission, input.CommissionPerTon, input.RefrigeratorId));
             }
         }
 
@@ -110,5 +113,25 @@ public class UpdateTraderTransactionCommandHandler
         dto.TraderName = trader.Name;
         dto.TraderPhoneNumber = trader.PhoneNumber;
         return dto;
+    }
+
+    private async Task EnsureRefrigeratorsExistAsync(
+        IEnumerable<TraderTransactionItemInput> items, CancellationToken cancellationToken)
+    {
+        var refrigeratorIds = items
+            .Where(i => i.RefrigeratorId is > 0)
+            .Select(i => i.RefrigeratorId!.Value)
+            .Distinct()
+            .ToList();
+        if (refrigeratorIds.Count == 0) return;
+
+        var found = await _context.Refrigerators
+            .Where(r => refrigeratorIds.Contains(r.Id))
+            .Select(r => r.Id)
+            .ToListAsync(cancellationToken);
+
+        var missing = refrigeratorIds.Except(found).ToList();
+        if (missing.Count > 0)
+            throw new NotFoundException(nameof(Refrigerator), missing[0]);
     }
 }

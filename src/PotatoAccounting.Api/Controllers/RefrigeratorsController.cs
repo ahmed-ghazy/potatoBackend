@@ -55,16 +55,38 @@ public class RefrigeratorsController : ControllerBase
 
     [HttpPost("{id:int}/items")]
     public async Task<ActionResult<RefrigeratorItemDto>> AddItem(int id, [FromBody] AddItemPayload body)
-        => Ok(await _sender.Send(new AddRefrigeratorItemCommand(id, body.Date, body.SackCount, body.Weight, body.Description)));
+        => Ok(await _sender.Send(new AddRefrigeratorItemCommand(id, body.Date, body.SackCount, body.Weight, body.Description, body.OwnerName)));
 
     [HttpPut("{id:int}/items/{itemId:int}")]
     public async Task<ActionResult<RefrigeratorItemDto>> UpdateItem(int id, int itemId, [FromBody] AddItemPayload body)
-        => Ok(await _sender.Send(new UpdateRefrigeratorItemCommand(id, itemId, body.Date, body.SackCount, body.Weight, body.Description)));
+        => Ok(await _sender.Send(new UpdateRefrigeratorItemCommand(id, itemId, body.Date, body.SackCount, body.Weight, body.Description, body.OwnerName)));
 
     [HttpDelete("{id:int}/items/{itemId:int}")]
     public async Task<IActionResult> DeleteItem(int id, int itemId)
     {
         await _sender.Send(new DeleteRefrigeratorItemCommand(id, itemId));
+        return NoContent();
+    }
+
+    // ===== Receipt image (on the refrigerator itself) =====
+
+    [HttpPost("{id:int}/receipt-image")]
+    [RequestSizeLimit(10 * 1024 * 1024)]
+    public async Task<ActionResult<RefrigeratorDto>> UploadReceiptImage(int id, IFormFile file)
+    {
+        if (file is null || file.Length == 0)
+            return BadRequest(new { message = "لم يتم اختيار ملف" });
+
+        await using var stream = file.OpenReadStream();
+        var dto = await _sender.Send(new UploadRefrigeratorReceiptImageCommand(
+            id, file.FileName, stream, file.ContentType ?? "", file.Length));
+        return Ok(dto);
+    }
+
+    [HttpDelete("{id:int}/receipt-image")]
+    public async Task<IActionResult> DeleteReceiptImage(int id)
+    {
+        await _sender.Send(new DeleteRefrigeratorReceiptImageCommand(id));
         return NoContent();
     }
 
@@ -107,6 +129,6 @@ public class RefrigeratorsController : ControllerBase
         return NoContent();
     }
 
-    public record AddItemPayload(DateTime Date, int SackCount, decimal Weight, string? Description);
+    public record AddItemPayload(DateTime Date, int SackCount, decimal Weight, string? Description, string? OwnerName);
     public record AddExpensePayload(DateTime Date, decimal Amount, string Description, string? Notes);
 }

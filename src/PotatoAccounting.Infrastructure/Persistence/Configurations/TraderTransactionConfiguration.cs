@@ -40,6 +40,7 @@ public class TraderTransactionConfiguration : IEntityTypeConfiguration<TraderTra
             .SetPropertyAccessMode(PropertyAccessMode.Field);
 
         b.Ignore(t => t.TotalAmount);
+        b.Ignore(t => t.TotalSackCount);
         b.Ignore(t => t.TotalWeight);
         b.Ignore(t => t.TotalNetWeight);
         b.Ignore(t => t.TotalCommission);

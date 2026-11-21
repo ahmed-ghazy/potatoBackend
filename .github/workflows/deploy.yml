@@ -1,0 +1,120 @@
+name: Deploy to production
+
+# Builds the Angular frontend into the API's wwwroot, publishes the API and
+# pushes it to SmarterASP (site4now) with Web Deploy.
+#
+# Required repository secrets (Settings -> Secrets and variables -> Actions):
+#   WEBDEPLOY_PASSWORD      - hosting account password (the one used for Web Deploy / FTP)
+#   PROD_CONNECTION_STRING  - full SQL Server connection string of the live database
+
+on:
+  push:
+    branches: [main]
+  # Fired by the frontend repo when its main branch changes.
+  repository_dispatch:
+    types: [frontend-updated]
+  workflow_dispatch:
+
+# Never run two deployments at once; let the running one finish.
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+env:
+  FRONTEND_REPO: ahmed-ghazy/potatoFront
+  WEBDEPLOY_SERVICE_URL: https://win9080.site4now.net:8172/msdeploy.axd?site=ahmedghazy-001-site1
+  WEBDEPLOY_SITE: ahmedghazy-001-site1
+  WEBDEPLOY_USERNAME: ahmedghazy-001
+  API_PROJECT: backend/src/PotatoAccounting.Api
+
+jobs:
+  deploy:
+    name: Build and deploy
+    runs-on: windows-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Check required secrets
+        shell: pwsh
+        env:
+          WEBDEPLOY_PASSWORD: ${{ secrets.WEBDEPLOY_PASSWORD }}
+          PROD_CONNECTION_STRING: ${{ secrets.PROD_CONNECTION_STRING }}
+        run: |
+          $missing = @()
+          if (-not $env:WEBDEPLOY_PASSWORD) { $missing += 'WEBDEPLOY_PASSWORD' }
+          if (-not $env:PROD_CONNECTION_STRING) { $missing += 'PROD_CONNECTION_STRING' }
+          if ($missing) { throw "Missing repository secrets: $($missing -join ', ')" }
+
+      # The production Angular build writes into ../backend/src/PotatoAccounting.Api/wwwroot,
+      # so both repos are checked out side by side as `backend` and `frontend`.
+      - name: Checkout backend
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          path: backend
+
+      - name: Checkout frontend
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ env.FRONTEND_REPO }}
+          ref: main
+          path: frontend
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm install --legacy-peer-deps --no-audit --no-fund
+
+      - name: Build frontend into wwwroot
+        working-directory: frontend
+        run: npm run build:prod
+
+      - name: Verify frontend bundle
+        shell: pwsh
+        run: |
+          if (-not (Test-Path "$env:API_PROJECT/wwwroot/index.html")) {
+            throw 'Angular build did not produce wwwroot/index.html'
+          }
+
+      - name: Inject production connection string
+        shell: pwsh
+        env:
+          PROD_CONNECTION_STRING: ${{ secrets.PROD_CONNECTION_STRING }}
+        run: |
+          $path = "$env:API_PROJECT/appsettings.Production.json"
+          $json = Get-Content $path -Raw | ConvertFrom-Json
+          $json.ConnectionStrings.DefaultConnection = $env:PROD_CONNECTION_STRING
+          $json | ConvertTo-Json -Depth 20 | Set-Content $path -Encoding utf8
+
+      # SkipExtraFilesOnServer keeps everything already on the server that is not part of
+      # this build - most importantly App_Data/uploads (user-uploaded images).
+      # EnableMSDeployAppOffline stops the app during the copy so DLLs are not locked.
+      - name: Publish with Web Deploy
+        shell: pwsh
+        env:
+          WEBDEPLOY_PASSWORD: ${{ secrets.WEBDEPLOY_PASSWORD }}
+        run: |
+          # ';' and '%' are special inside MSBuild property values.
+          $password = $env:WEBDEPLOY_PASSWORD.Replace('%', '%25').Replace(';', '%3B')
+          dotnet publish "$env:API_PROJECT/PotatoAccounting.Api.csproj" `
+            --configuration Release `
+            -p:WebPublishMethod=MSDeploy `
+            -p:MSDeployPublishMethod=WMSVC `
+            "-p:MSDeployServiceURL=$env:WEBDEPLOY_SERVICE_URL" `
+            "-p:DeployIisAppPath=$env:WEBDEPLOY_SITE" `
+            "-p:UserName=$env:WEBDEPLOY_USERNAME" `
+            "-p:Password=$password" `
+            -p:AllowUntrustedCertificate=true `
+            -p:SkipExtraFilesOnServer=true `
+            -p:EnableMSDeployAppOffline=true `
+            -p:EnableMSDeployBackup=false
+          if ($LASTEXITCODE -ne 0) { throw "Web Deploy failed with exit code $LASTEXITCODE" }

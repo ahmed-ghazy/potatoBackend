@@ -13,6 +13,7 @@ public class TraderTransactionDto
     public List<TraderTransactionItemDto> Items { get; set; } = new();
     public List<TraderPaymentDto> Payments { get; set; } = new();
 
+    public int TotalSackCount { get; set; }
     public decimal TotalWeight { get; set; }
     public decimal TotalNetWeight { get; set; }
     public decimal TotalAmount { get; set; }
@@ -43,6 +44,7 @@ public class TraderTransactionDto
             Items = t.Items.OrderBy(i => i.Date).ThenBy(i => i.Id).Select(TraderTransactionItemDto.From).ToList(),
             Payments = paymentList.OrderByDescending(p => p.Date).ThenByDescending(p => p.Id)
                                   .Select(TraderPaymentDto.From).ToList(),
+            TotalSackCount = t.TotalSackCount,
             TotalWeight = t.TotalWeight,
             TotalNetWeight = t.TotalNetWeight,
             TotalAmount = totalAmount,

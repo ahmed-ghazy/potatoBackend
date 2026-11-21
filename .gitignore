@@ -434,3 +434,6 @@ src/PotatoAccounting.Api/App_Data/
 # wwwroot is populated by `npm run build:prod` (Angular bundle goes here at
 # publish time). Treat it as build output: ignore the whole folder.
 src/PotatoAccounting.Api/wwwroot/
+
+# Machine-local settings (real connection strings etc.) - never commit
+appsettings.Local.json

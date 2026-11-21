@@ -13,7 +13,8 @@ public record AddRefrigeratorItemCommand(
     DateTime Date,
     int SackCount,
     decimal Weight,
-    string? Description) : IRequest<RefrigeratorItemDto>;
+    string? Description,
+    string? OwnerName) : IRequest<RefrigeratorItemDto>;
 
 public class AddRefrigeratorItemCommandValidator : AbstractValidator<AddRefrigeratorItemCommand>
 {
@@ -23,6 +24,7 @@ public class AddRefrigeratorItemCommandValidator : AbstractValidator<AddRefriger
         RuleFor(x => x.SackCount).GreaterThan(0).WithMessage("عدد الشكاير يجب أن يكون أكبر من صفر");
         RuleFor(x => x.Weight).GreaterThan(0).WithMessage("الوزن يجب أن يكون أكبر من صفر");
         RuleFor(x => x.Description).MaximumLength(200);
+        RuleFor(x => x.OwnerName).MaximumLength(200);
     }
 }
 
@@ -45,7 +47,7 @@ public class AddRefrigeratorItemCommandHandler : IRequestHandler<AddRefrigerator
         var r = await _db.Refrigerators.FirstOrDefaultAsync(x => x.Id == request.RefrigeratorId, cancellationToken)
             ?? throw new NotFoundException(nameof(Refrigerator), request.RefrigeratorId);
 
-        var item = RefrigeratorItem.Create(r.Id, request.Date, request.SackCount, request.Weight, request.Description, _currentUser.UserId, tenantId);
+        var item = RefrigeratorItem.Create(r.Id, request.Date, request.SackCount, request.Weight, request.Description, request.OwnerName, _currentUser.UserId, tenantId);
         _db.RefrigeratorItems.Add(item);
         await _db.SaveChangesAsync(cancellationToken);
 

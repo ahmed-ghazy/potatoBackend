@@ -12,6 +12,7 @@ public class RefrigeratorConfiguration : IEntityTypeConfiguration<Refrigerator>
         b.HasKey(r => r.Id);
         b.Property(r => r.Name).IsRequired().HasMaxLength(200);
         b.Property(r => r.Notes).HasMaxLength(1000);
+        b.Property(r => r.ReceiptImagePath).HasMaxLength(500);
         b.Property(r => r.TenantId).IsRequired();
         b.Property(r => r.SeasonId).IsRequired();
         b.Property(r => r.CreatedAt);

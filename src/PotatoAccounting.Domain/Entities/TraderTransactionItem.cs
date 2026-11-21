@@ -9,8 +9,11 @@ public class TraderTransactionItem : BaseEntity
     private const decimal KgPerTon = 1000m;
 
     public int TraderTransactionId { get; private set; }
+    /// <summary>Optional link to the refrigerator this quantity came out of (خرج من أنهى تلاجة).</summary>
+    public int? RefrigeratorId { get; private set; }
     public DateTime Date { get; private set; }
     public string? Description { get; private set; }
+    public int SackCount { get; private set; }
     public decimal Weight { get; private set; }
     public decimal Price { get; private set; }
     public string? ImagePath { get; private set; }
@@ -34,18 +37,22 @@ public class TraderTransactionItem : BaseEntity
     public static TraderTransactionItem Create(
         DateTime date,
         string? description,
+        int sackCount,
         decimal weight,
         decimal price,
         bool hasTare = true,
         bool hasCommission = true,
-        decimal commissionPerTon = 0m)
+        decimal commissionPerTon = 0m,
+        int? refrigeratorId = null)
     {
-        Guard(description, weight, price, commissionPerTon);
+        Guard(description, sackCount, weight, price, commissionPerTon);
 
         return new TraderTransactionItem
         {
+            RefrigeratorId = NormalizeRefrigeratorId(refrigeratorId),
             Date = date,
             Description = string.IsNullOrWhiteSpace(description) ? null : description.Trim(),
+            SackCount = sackCount,
             Weight = weight,
             Price = price,
             HasTare = hasTare,
@@ -57,15 +64,19 @@ public class TraderTransactionItem : BaseEntity
     public void Update(
         DateTime date,
         string? description,
+        int sackCount,
         decimal weight,
         decimal price,
         bool hasTare,
         bool hasCommission,
-        decimal commissionPerTon)
+        decimal commissionPerTon,
+        int? refrigeratorId = null)
     {
-        Guard(description, weight, price, commissionPerTon);
+        Guard(description, sackCount, weight, price, commissionPerTon);
+        RefrigeratorId = NormalizeRefrigeratorId(refrigeratorId);
         Date = date;
         Description = string.IsNullOrWhiteSpace(description) ? null : description.Trim();
+        SackCount = sackCount;
         Weight = weight;
         Price = price;
         HasTare = hasTare;
@@ -80,10 +91,15 @@ public class TraderTransactionItem : BaseEntity
 
     internal void AttachTo(int transactionId) => TraderTransactionId = transactionId;
 
-    private static void Guard(string? description, decimal weight, decimal price, decimal commissionPerTon)
+    private static int? NormalizeRefrigeratorId(int? refrigeratorId)
+        => refrigeratorId is > 0 ? refrigeratorId : null;
+
+    private static void Guard(string? description, int sackCount, decimal weight, decimal price, decimal commissionPerTon)
     {
         if (description is not null && description.Length > 200)
             throw new DomainException("وصف العنصر طويل جداً");
+        if (sackCount < 0)
+            throw new DomainException("العدد لا يمكن أن يكون سالباً");
         if (weight <= 0)
             throw new DomainException("الوزن يجب أن يكون أكبر من صفر");
         if (price < 0)

@@ -11,6 +11,10 @@ using PotatoAccounting.Infrastructure.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Machine-local overrides (e.g. a real connection string). The file is git-ignored
+// so secrets never reach the repository; it simply doesn't exist on CI.
+builder.Configuration.AddJsonFile("appsettings.Local.json", optional: true, reloadOnChange: true);
+
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);
 

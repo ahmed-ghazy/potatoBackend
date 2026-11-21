@@ -14,7 +14,8 @@ public record UpdateRefrigeratorItemCommand(
     DateTime Date,
     int SackCount,
     decimal Weight,
-    string? Description) : IRequest<RefrigeratorItemDto>;
+    string? Description,
+    string? OwnerName) : IRequest<RefrigeratorItemDto>;
 
 public class UpdateRefrigeratorItemCommandValidator : AbstractValidator<UpdateRefrigeratorItemCommand>
 {
@@ -25,6 +26,7 @@ public class UpdateRefrigeratorItemCommandValidator : AbstractValidator<UpdateRe
         RuleFor(x => x.SackCount).GreaterThan(0);
         RuleFor(x => x.Weight).GreaterThan(0);
         RuleFor(x => x.Description).MaximumLength(200);
+        RuleFor(x => x.OwnerName).MaximumLength(200);
     }
 }
 
@@ -40,7 +42,7 @@ public class UpdateRefrigeratorItemCommandHandler : IRequestHandler<UpdateRefrig
             .FirstOrDefaultAsync(i => i.Id == request.ItemId && i.RefrigeratorId == request.RefrigeratorId, cancellationToken)
             ?? throw new NotFoundException(nameof(RefrigeratorItem), request.ItemId);
 
-        item.Update(request.Date, request.SackCount, request.Weight, request.Description);
+        item.Update(request.Date, request.SackCount, request.Weight, request.Description, request.OwnerName);
         await _db.SaveChangesAsync(cancellationToken);
 
         return RefrigeratorItemDto.From(item);

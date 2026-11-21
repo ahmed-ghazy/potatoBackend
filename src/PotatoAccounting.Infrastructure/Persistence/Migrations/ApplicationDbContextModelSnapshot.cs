@@ -480,6 +480,10 @@ namespace PotatoAccounting.Infrastructure.Persistence.Migrations
                         .HasMaxLength(1000)
                         .HasColumnType("nvarchar(1000)");
 
+                    b.Property<string>("ReceiptImagePath")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
                     b.Property<int>("SeasonId")
                         .HasColumnType("int");
 
@@ -563,6 +567,14 @@ namespace PotatoAccounting.Infrastructure.Persistence.Migrations
                         .HasColumnType("datetime2");
 
                     b.Property<string>("Description")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("ImagePath")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("OwnerName")
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
 
@@ -829,6 +841,14 @@ namespace PotatoAccounting.Infrastructure.Persistence.Migrations
                     b.Property<decimal>("Price")
                         .HasColumnType("decimal(18,2)");
 
+                    b.Property<int?>("RefrigeratorId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("SackCount")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(0);
+
                     b.Property<int>("TraderTransactionId")
                         .HasColumnType("int");
 
@@ -838,6 +858,8 @@ namespace PotatoAccounting.Infrastructure.Persistence.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("Date");
+
+                    b.HasIndex("RefrigeratorId");
 
                     b.HasIndex("TraderTransactionId");
 
@@ -1078,6 +1100,11 @@ namespace PotatoAccounting.Infrastructure.Persistence.Migrations
 
             modelBuilder.Entity("PotatoAccounting.Domain.Entities.TraderTransactionItem", b =>
                 {
+                    b.HasOne("PotatoAccounting.Domain.Entities.Refrigerator", null)
+                        .WithMany()
+                        .HasForeignKey("RefrigeratorId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
                     b.HasOne("PotatoAccounting.Domain.Entities.TraderTransaction", null)
                         .WithMany("Items")
                         .HasForeignKey("TraderTransactionId")

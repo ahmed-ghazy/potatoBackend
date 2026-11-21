@@ -15,6 +15,7 @@ public class RefrigeratorItemConfiguration : IEntityTypeConfiguration<Refrigerat
         b.Property(i => i.SackCount).IsRequired();
         b.Property(i => i.Weight).HasColumnType("decimal(18,2)");
         b.Property(i => i.Description).HasMaxLength(200);
+        b.Property(i => i.OwnerName).HasMaxLength(200);
         b.Property(i => i.ImagePath).HasMaxLength(500);
         b.Property(i => i.UserId);
         b.Property(i => i.TenantId).IsRequired();

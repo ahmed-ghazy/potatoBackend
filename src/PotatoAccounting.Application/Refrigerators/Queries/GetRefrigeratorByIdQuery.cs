@@ -26,6 +26,19 @@ public class GetRefrigeratorByIdQueryHandler : IRequestHandler<GetRefrigeratorBy
         var expenses = await _db.RefrigeratorExpenses.AsNoTracking()
             .Where(e => e.RefrigeratorId == r.Id).ToListAsync(cancellationToken);
 
-        return RefrigeratorDto.From(r, items, expenses);
+        // Sacks/weight taken out through trader invoices — joined to TraderTransactions so the
+        // tenant + season query filter applies.
+        var sold = await (from i in _db.TraderTransactionItems.AsNoTracking()
+                          join t in _db.TraderTransactions.AsNoTracking() on i.TraderTransactionId equals t.Id
+                          where i.RefrigeratorId == r.Id
+                          group i by i.RefrigeratorId into g
+                          select new
+                          {
+                              SackCount = g.Sum(x => x.SackCount),
+                              Weight = g.Sum(x => x.Weight),
+                          })
+                          .FirstOrDefaultAsync(cancellationToken);
+
+        return RefrigeratorDto.From(r, items, expenses, sold?.SackCount ?? 0, sold?.Weight ?? 0m);
     }
 }

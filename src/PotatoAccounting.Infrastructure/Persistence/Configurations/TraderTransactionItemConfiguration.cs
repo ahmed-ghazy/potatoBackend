@@ -11,8 +11,10 @@ public class TraderTransactionItemConfiguration : IEntityTypeConfiguration<Trade
         b.ToTable("TraderTransactionItems");
         b.HasKey(i => i.Id);
         b.Property(i => i.TraderTransactionId).IsRequired();
+        b.Property(i => i.RefrigeratorId);
         b.Property(i => i.Date).IsRequired();
         b.Property(i => i.Description).HasMaxLength(200);
+        b.Property(i => i.SackCount).IsRequired().HasDefaultValue(0);
         b.Property(i => i.Weight).HasColumnType("decimal(18,2)");
         b.Property(i => i.Price).HasColumnType("decimal(18,2)");
         b.Property(i => i.ImagePath).HasMaxLength(500);
@@ -24,7 +26,13 @@ public class TraderTransactionItemConfiguration : IEntityTypeConfiguration<Trade
         b.Ignore(i => i.Amount);
         b.Ignore(i => i.Commission);
 
+        b.HasOne<Refrigerator>()
+            .WithMany()
+            .HasForeignKey(i => i.RefrigeratorId)
+            .OnDelete(DeleteBehavior.SetNull);
+
         b.HasIndex(i => i.TraderTransactionId);
+        b.HasIndex(i => i.RefrigeratorId);
         b.HasIndex(i => i.Date);
     }
 }

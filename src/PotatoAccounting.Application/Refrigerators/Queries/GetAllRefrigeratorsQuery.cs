@@ -31,13 +31,32 @@ public class GetAllRefrigeratorsQueryHandler : IRequestHandler<GetAllRefrigerato
         var expenses = await _db.RefrigeratorExpenses.AsNoTracking()
             .Where(e => ids.Contains(e.RefrigeratorId)).ToListAsync(cancellationToken);
 
+        // Sacks/weight taken out through trader invoices. Joining TraderTransactions keeps the
+        // tenant + season query filter applied (TraderTransactionItem carries no filter of its own).
+        var sold = await (from i in _db.TraderTransactionItems.AsNoTracking()
+                          join t in _db.TraderTransactions.AsNoTracking() on i.TraderTransactionId equals t.Id
+                          where i.RefrigeratorId != null && ids.Contains(i.RefrigeratorId.Value)
+                          group i by i.RefrigeratorId!.Value into g
+                          select new
+                          {
+                              RefrigeratorId = g.Key,
+                              SackCount = g.Sum(x => x.SackCount),
+                              Weight = g.Sum(x => x.Weight),
+                          })
+                          .ToListAsync(cancellationToken);
+
+        var soldSacksByRid = sold.ToDictionary(x => x.RefrigeratorId, x => x.SackCount);
+        var soldWeightByRid = sold.ToDictionary(x => x.RefrigeratorId, x => x.Weight);
+
         var itemsByRid = items.GroupBy(i => i.RefrigeratorId).ToDictionary(g => g.Key, g => g.ToList());
         var expensesByRid = expenses.GroupBy(e => e.RefrigeratorId).ToDictionary(g => g.Key, g => g.ToList());
 
         return refrigerators.Select(r => RefrigeratorDto.From(
             r,
             itemsByRid.TryGetValue(r.Id, out var iList) ? iList : null,
-            expensesByRid.TryGetValue(r.Id, out var eList) ? eList : null
+            expensesByRid.TryGetValue(r.Id, out var eList) ? eList : null,
+            soldSacksByRid.GetValueOrDefault(r.Id),
+            soldWeightByRid.GetValueOrDefault(r.Id)
         )).ToList();
     }
 }
