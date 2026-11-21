@@ -10,10 +10,14 @@ name: Deploy to production
 on:
   push:
     branches: [main]
-  # Fired by the frontend repo when its main branch changes.
-  repository_dispatch:
-    types: [frontend-updated]
   workflow_dispatch:
+  # Called by the frontend repo when its main branch changes (it passes the same secrets).
+  workflow_call:
+    secrets:
+      WEBDEPLOY_PASSWORD:
+        required: true
+      PROD_CONNECTION_STRING:
+        required: true
 
 # Never run two deployments at once; let the running one finish.
 concurrency:
@@ -21,6 +25,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
+  BACKEND_REPO: ahmed-ghazy/potatoBackend
   FRONTEND_REPO: ahmed-ghazy/potatoFront
   WEBDEPLOY_SERVICE_URL: https://win9080.site4now.net:8172/msdeploy.axd?site=ahmedghazy-001-site1
   WEBDEPLOY_SITE: ahmedghazy-001-site1
@@ -50,6 +55,8 @@ jobs:
       - name: Checkout backend
         uses: actions/checkout@v4
         with:
+          # Explicit: when called from the frontend repo the default would be that repo.
+          repository: ${{ env.BACKEND_REPO }}
           ref: main
           path: backend
 
@@ -90,10 +97,13 @@ jobs:
         env:
           PROD_CONNECTION_STRING: ${{ secrets.PROD_CONNECTION_STRING }}
         run: |
-          $path = "$env:API_PROJECT/appsettings.Production.json"
-          $json = Get-Content $path -Raw | ConvertFrom-Json
-          $json.ConnectionStrings.DefaultConnection = $env:PROD_CONNECTION_STRING
-          $json | ConvertTo-Json -Depth 20 | Set-Content $path -Encoding utf8
+          # Both files, so the live database is used whatever ASPNETCORE_ENVIRONMENT is on the server.
+          foreach ($name in 'appsettings.json', 'appsettings.Production.json') {
+            $path = "$env:API_PROJECT/$name"
+            $json = Get-Content $path -Raw | ConvertFrom-Json
+            $json.ConnectionStrings.DefaultConnection = $env:PROD_CONNECTION_STRING
+            $json | ConvertTo-Json -Depth 20 | Set-Content $path -Encoding utf8
+          }
 
       # SkipExtraFilesOnServer keeps everything already on the server that is not part of
       # this build - most importantly App_Data/uploads (user-uploaded images).
